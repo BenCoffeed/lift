@@ -38,6 +38,7 @@ import ServerlessError from "../../utils/error";
 import { redirectToMainDomain } from "../../classes/cloudfrontFunctions";
 import type { Progress } from "../../utils/logger";
 import { getUtils } from "../../utils/logger";
+import getClosestMatchCertificate from "../../utils/getClosestMatchCertificate";
 
 const SCHEMA = {
     type: "object",
@@ -148,11 +149,18 @@ export class ServerSideWebsite extends AwsConstruct {
                 : this.provider.naming.getHttpApiLogicalId();
         const apiGatewayDomain = Fn.join(".", [Fn.ref(apiId), `execute-api.${this.provider.region}.amazonaws.com`]);
 
-        // Cast the domains to an array
         this.domains = configuration.domain !== undefined ? flatten([configuration.domain]) : undefined;
+
+        const certificateArn =
+            configuration.domain !== undefined
+                ? configuration.certificate !== undefined
+                    ? configuration.certificate
+                    : getClosestMatchCertificate(configuration.domain)
+                : undefined;
+
         const certificate =
-            configuration.certificate !== undefined
-                ? acm.Certificate.fromCertificateArn(this, "Certificate", configuration.certificate)
+            certificateArn !== undefined
+                ? acm.Certificate.fromCertificateArn(this, "Certificate", certificateArn)
                 : undefined;
 
         this.distribution = new Distribution(this, "CDN", {
